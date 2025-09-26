@@ -2,7 +2,7 @@
 from typing import Tuple, Dict, Any, Optional
 import os
 import requests
-from construct.maps import StepProcessor
+from maps import StepProcessor
 
 def process_inputs(origin: str, destination: str) -> Tuple[str, str]:
     """
