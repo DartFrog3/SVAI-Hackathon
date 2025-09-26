@@ -42,14 +42,8 @@ def draw_map(coords: List[tuple], origin_label: str, destination_label: str) -> 
     st_folium(m, width=900, height=550)
 
 # --- UI ---
-st.title("🗺️ Google Maps Route Viewer")
-st.caption("Enter an origin and destination. We’ll pass them through a dummy function that returns a Google Maps Directions response, and we render the route.")
-
-with st.sidebar:
-    st.header("Secrets / API key")
-    st.markdown("**API key** is read from `.streamlit/secrets.toml` or `GOOGLE_MAPS_API_KEY` env var.")
-    if not get_api_key():
-        st.error("No API key found. Add to `.streamlit/secrets.toml` or set `GOOGLE_MAPS_API_KEY`.")
+st.title("🗺️ Safe Route Generation")
+st.caption("Enter an origin and destination. We’ll find you the safest way home.")
 
 # --- Form to avoid flicker and persist submission ---
 with st.form("route_form", clear_on_submit=False):
