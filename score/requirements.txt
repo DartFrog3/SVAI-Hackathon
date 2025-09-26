@@ -1,0 +1,41 @@
+# Core LangChain and LangGraph
+langchain>=0.1.0
+langgraph>=0.0.30
+langchain-openai>=0.0.8
+langchain-community>=0.0.20
+
+# OpenAI
+openai>=1.0.0
+
+# Data processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Geospatial calculations
+geopy>=2.3.0
+
+# HTTP requests (for news APIs)
+requests>=2.31.0
+
+# JSON handling (built into Python, but explicit for clarity)
+# json - built-in module
+
+# Date/time handling (built into Python)
+# datetime - built-in module
+
+# Type hints and dataclasses (built into Python 3.7+)
+# typing - built-in module
+# dataclasses - built-in module
+
+# Optional: For enhanced functionality
+python-dotenv>=1.0.0  # For environment variable management
+
+# Optional: For additional news API support
+newsapi-python>=0.2.6  # If using NewsAPI
+
+# Optional: For geocoding addresses
+geocoder>=1.38.1
+
+# Optional: For enhanced data visualization (if needed)
+matplotlib>=3.7.0
+plotly>=5.14.0
