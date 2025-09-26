@@ -43,7 +43,7 @@ def draw_map(coords: List[tuple], origin_label: str, destination_label: str) -> 
 
 # --- UI ---
 st.title("🗺️ Safe Route Generation")
-st.caption("Enter an origin and destination. We’ll find you the safest way home.")
+st.caption("Enter an origin and destination. Based on recent news and historical crime, we’ll find you the safest way.")
 
 # --- Form to avoid flicker and persist submission ---
 with st.form("route_form", clear_on_submit=False):
@@ -64,7 +64,7 @@ if submitted:
         st.warning("Please provide both origin and destination.")
     else:
         o, d = process_inputs(origin, destination)
-        with st.spinner("Fetching route via dummy function..."):
+        with st.spinner("Fetching route..."):
             directions_raw = get_route(o, d, mode=mode, api_key=api_key)
 
         status = directions_raw.get("status", "UNKNOWN")
