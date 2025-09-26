@@ -174,6 +174,8 @@ def main():
         leg0 = current_route["legs"][0]
         step0 = leg0["steps"][0]
 
+        # IF: step0 is end --> return
+
         # IF: distance > MAX_DIST (defaults to 100m as typical city block)
         if step0["distance"]["value"] > args.max_dist:
             # 2.1) n-sect step and take the first point TODO though have midpointing rn
@@ -181,7 +183,7 @@ def main():
             print(f"\nFirst block midpoint: {lat:.6f}, {lng:.6f}")
         else:
             # 2.2) set lat lng of our target
-            lat, lng = step0["start_location"]["lat"], step0["start_location"]["lng"] # check type TODO
+            lat, lng = step0["start_location"]["lat"], step0["start_location"]["lng"] # end, check type TODO
 
         # 3) Neighboring locations (up to 4)
         neighbors = neighboring_candidates(args.key, lat, lng, radii_m=[35.0, 80.0], bearings_deg=16, want=4)
