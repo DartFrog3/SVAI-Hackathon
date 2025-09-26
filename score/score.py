@@ -362,35 +362,38 @@ def get_danger_score(latitude: float, longitude: float, street_address: str,
     
     return final_state["danger_score"]
 
-# Test function
-if __name__ == "__main__":
-    # Test the LangGraph workflow
-    print("🧠 Testing LangGraph Danger Scorer with News and Crime Agents")
-    print("="*60)
+def get_danger_score_from_loc(loc):
+    return get_danger_score(loc.lat, loc.lng, "San Francisco, CA", radius_km=1.0, csv_path="crime.csv")
+
+# # Test function
+# if __name__ == "__main__":
+#     # Test the LangGraph workflow
+#     print("🧠 Testing LangGraph Danger Scorer with News and Crime Agents")
+#     print("="*60)
     
-    # Check API keys
-    if not os.getenv("OPENAI_API_KEY"):
-        print("❌ Error: OPENAI_API_KEY not set")
-        exit(1)
+#     # Check API keys
+#     if not os.getenv("OPENAI_API_KEY"):
+#         print("❌ Error: OPENAI_API_KEY not set")
+#         exit(1)
     
-    if not os.getenv("NEWS_API_KEY"):
-        print("⚠️  Warning: NEWS_API_KEY not set - news analysis will be skipped")
+#     if not os.getenv("NEWS_API_KEY"):
+#         print("⚠️  Warning: NEWS_API_KEY not set - news analysis will be skipped")
     
-    # Test locations (using SF coordinates to match sample crime data)
-    test_locations = [
-        (37.7749, -122.4194, "Union Square, San Francisco, CA"),
-        (37.7849, -122.4094, "Chinatown, San Francisco, CA"),
-        (37.7649, -122.4294, "Mission District, San Francisco, CA")
-    ]
+#     # Test locations (using SF coordinates to match sample crime data)
+#     test_locations = [
+#         (37.7749, -122.4194, "Union Square, San Francisco, CA"),
+#         (37.7849, -122.4094, "Chinatown, San Francisco, CA"),
+#         (37.7649, -122.4294, "Mission District, San Francisco, CA")
+#     ]
     
-    for lat, lng, address in test_locations:
-        print(f"\n📍 Location: {address}")
-        print(f"🔍 Coordinates: ({lat}, {lng})")
-        print("📰 Fetching news data...")
-        print("🚔 Analyzing crime data...")
+#     for lat, lng, address in test_locations:
+#         print(f"\n📍 Location: {address}")
+#         print(f"🔍 Coordinates: ({lat}, {lng})")
+#         print("📰 Fetching news data...")
+#         print("🚔 Analyzing crime data...")
         
-        # Test with 1km radius
-        score = get_danger_score(lat, lng, address, radius_km=1.0, csv_path="/Users/colerobins/Downloads/crime.csv")
-        print(f"⚠️  Final Danger Score: {score:.3f}")
+#         # Test with 1km radius
+#         score = get_danger_score(lat, lng, address, radius_km=1.0, csv_path="/Users/colerobins/Downloads/crime.csv")
+#         print(f"⚠️  Final Danger Score: {score:.3f}")
         
-        print("-" * 40)
+#         print("-" * 40)
