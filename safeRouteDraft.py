@@ -54,14 +54,64 @@ def get_walking_route(api_key: str, origin: str, destination: str, waypoints: Li
         sys.exit(2)
     return data
 
-def reverse_geocode_intersection(api_key: str, lat: float, lng: float) -> Dict | None:
+def reverse_geocode_best_effort(api_key: str, lat: float, lng: float) -> dict | None:
+    """
+    1) Try result_type=intersection
+    2) Fallback: plain reverse geocode; accept route/street_address/locality etc.
+    Returns the first result (dict) or None.
+    """
     params = {"latlng": f"{lat},{lng}", "key": api_key, "result_type": "intersection"}
     r = requests.get(GEOCODE_URL, params=params, timeout=15)
     data = r.json()
-    if data.get("status") != "OK":
-        return None
-    results = data.get("results", [])
-    return results[0] if results else None
+    if data.get("status") == "OK" and data.get("results"):
+        return data["results"][0]
+
+    # Fallback: no filter
+    params = {"latlng": f"{lat},{lng}", "key": api_key}
+    r = requests.get(GEOCODE_URL, params=params, timeout=15)
+    data = r.json()
+    if data.get("status") == "OK" and data.get("results"):
+        return data["results"][0]
+    return None
+
+def neighboring_candidates(api_key: str, center_lat: float, center_lng: float,
+                           radii_m: list[float] = [35.0, 80.0],
+                           bearings_deg: int = 16,
+                           want: int = 4) -> list[dict]:
+    """
+    Sample a ring of points around (center_lat,center_lng), reverse-geocode with
+    best-effort (intersection first, else route/street), dedupe by place_id+name,
+    sort by distance, and return up to `want` candidates.
+    """
+    found, seen = [], set()
+    for radius in radii_m:
+        for k in range(bearings_deg):
+            theta = 2*math.pi * k / bearings_deg
+            dn = radius * math.cos(theta)   # meters north
+            de = radius * math.sin(theta)   # meters east
+            dlat, dlng = meters_to_offset_deg(center_lat, dn, de)
+            plat, plng = center_lat + dlat, center_lng + dlng
+
+            res = reverse_geocode_best_effort(api_key, plat, plng)
+            if not res:
+                continue
+
+            pid = res.get("place_id", "")
+            addr = res.get("formatted_address", "")
+            key = (pid, addr)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            loc = res["geometry"]["location"]
+            dist = haversine_m(center_lat, center_lng, loc["lat"], loc["lng"])
+            res["_distance_m"] = dist
+            # Also store a waypoint string you can pass directly to Directions
+            res["_waypoint"] = f"{loc['lat']:.6f},{loc['lng']:.6f}"
+            found.append(res)
+
+    found.sort(key=lambda r: r.get("_distance_m", 1e9))
+    return found[:want]
 
 # ----------------------------- First block & neighbors -----------------------------
 
@@ -73,27 +123,6 @@ def first_block_midpoint(route_json: dict) -> Tuple[float,float]:
     a = step0["start_location"]["lat"], step0["start_location"]["lng"]
     b = step0["end_location"]["lat"],   step0["end_location"]["lng"]
     return ((a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0)
-
-def neighboring_intersections(api_key: str, center_lat: float, center_lng: float,
-                              probe_m: float = 25.0, want: int = 4) -> List[Dict]:
-    bearings = [(probe_m, 0.0), (0.0, probe_m), (-probe_m, 0.0), (0.0, -probe_m)]
-    seen = {}
-    found = []
-    for dn, de in bearings:
-        dlat, dlng = meters_to_offset_deg(center_lat, dn, de)
-        plat, plng = center_lat + dlat, center_lng + dlng
-        res = reverse_geocode_intersection(api_key, plat, plng)
-        if not res:
-            continue
-        pid = res.get("place_id")
-        loc = res["geometry"]["location"]
-        dist = haversine_m(center_lat, center_lng, loc["lat"], loc["lng"])
-        if pid and pid not in seen:
-            seen[pid] = True
-            res["_distance_m"] = dist
-            found.append(res)
-    found.sort(key=lambda r: r.get("_distance_m", 1e9))
-    return found[:want]
 
 # ----------------------------- Scoring stub -----------------------------
 
@@ -139,7 +168,7 @@ def main():
     print(f"\nFirst block midpoint: {lat:.6f}, {lng:.6f}")
 
     # 3) Neighboring intersections (up to 4)
-    neighbors = neighboring_intersections(args.key, lat, lng, probe_m=args.probe_m, want=4)
+    neighbors = neighboring_candidates(args.key, lat, lng, radii_m=[35.0, 80.0], bearings_deg=16, want=4)
     if not neighbors:
         print("No neighboring intersections found. Try increasing --probe_m to 40–60.")
         return
