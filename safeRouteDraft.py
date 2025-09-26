@@ -3,6 +3,8 @@ import argparse, json, os, re, sys, math
 from typing import List, Tuple, Dict
 import requests
 
+from construct.config import GOOGLE_MAPS_API_KEY
+
 DIRECTIONS_URL = "https://maps.googleapis.com/maps/api/directions/json"
 GEOCODE_URL    = "https://maps.googleapis.com/maps/api/geocode/json"
 
@@ -151,7 +153,7 @@ def main():
     p.add_argument("origin", help="Address or 'lat,lng'")
     p.add_argument("destination", help="Address or 'lat,lng'")
     p.add_argument("--waypoint", action="append", default=[], help="Optional pre-set waypoint(s)")
-    p.add_argument("--key", default=os.getenv("GOOGLE_MAPS_API_KEY"), help="Google API key")
+    p.add_argument("--key", default=GOOGLE_MAPS_API_KEY, help="Google API key")
     p.add_argument("--probe_m", type=float, default=25.0, help="Probe radius (meters) for neighbor search")
     p.add_argument("max_iters", type=int, default=100, help="Maximum number of replanning iterations")
     p.add_argument("max_dist", type=float, default=100.0, help="Maximum distance to walk between evaluations")
