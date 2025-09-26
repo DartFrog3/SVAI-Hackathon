@@ -4,22 +4,28 @@ import streamlit as st
 import polyline
 import folium
 from streamlit_folium import st_folium
-from typing import Optional, Tuple, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from utils import process_inputs, get_route
 
 st.set_page_config(page_title="Route Viewer", page_icon="🗺️", layout="centered")
 
+# --- Session state init ---
+if "coords" not in st.session_state:
+    st.session_state.coords = None
+if "route_data" not in st.session_state:
+    st.session_state.route_data = None
+if "route_meta" not in st.session_state:
+    st.session_state.route_meta = None
+
 # --- Helpers ---
 def get_api_key() -> Optional[str]:
     # Prefer Streamlit secrets; fallback to environment
-    key = None
     try:
-        key = st.secrets["GOOGLE_MAPS_API_KEY"]
+        return st.secrets["GOOGLE_MAPS_API_KEY"]
     except Exception:
-        key = os.getenv("GOOGLE_MAPS_API_KEY")
-    return key
+        return os.getenv("GOOGLE_MAPS_API_KEY")
 
-def decode_route_points(directions: Dict[str, Any]):
+def decode_route_points(directions: Dict[str, Any]) -> Tuple[List[tuple], Dict[str, Any]]:
     route = directions["routes"][0]
     enc = route["overview_polyline"]["points"]
     coords = polyline.decode(enc)  # [(lat, lng), ...]
@@ -40,54 +46,61 @@ st.title("🗺️ Google Maps Route Viewer")
 st.caption("Enter an origin and destination. We’ll pass them through a dummy function that returns a Google Maps Directions response, and we render the route.")
 
 with st.sidebar:
-    st.header("Settings")
-    mode = st.selectbox("Travel mode", ["driving", "walking", "bicycling", "transit"], index=0)
+    st.header("Secrets / API key")
     st.markdown("**API key** is read from `.streamlit/secrets.toml` or `GOOGLE_MAPS_API_KEY` env var.")
     if not get_api_key():
         st.error("No API key found. Add to `.streamlit/secrets.toml` or set `GOOGLE_MAPS_API_KEY`.")
 
-col1, col2 = st.columns(2)
-with col1:
-    origin = st.text_input("Origin", placeholder="e.g., Golden Gate Bridge, San Francisco, CA")
-with col2:
-    destination = st.text_input("Destination", placeholder="e.g., Ferry Building, San Francisco, CA")
+# --- Form to avoid flicker and persist submission ---
+with st.form("route_form", clear_on_submit=False):
+    col1, col2 = st.columns(2)
+    with col1:
+        origin = st.text_input("Origin", placeholder="e.g., Golden Gate Bridge, San Francisco, CA")
+    with col2:
+        destination = st.text_input("Destination", placeholder="e.g., Ferry Building, San Francisco, CA")
+    mode = st.selectbox("Travel mode", ["driving", "walking", "bicycling", "transit"], index=0)
+    submitted = st.form_submit_button("Get Route", use_container_width=True)
 
-go = st.button("Get Route", type="primary", use_container_width=True)
-
-if go:
+# --- On submit: get route and SAVE to session_state ---
+if submitted:
     api_key = get_api_key()
     if not api_key:
-        st.stop()
-
-    if not origin or not destination:
+        st.error("No API key found. Add to `.streamlit/secrets.toml` or set `GOOGLE_MAPS_API_KEY`.")
+    elif not origin or not destination:
         st.warning("Please provide both origin and destination.")
-        st.stop()
+    else:
+        o, d = process_inputs(origin, destination)
+        with st.spinner("Fetching route via dummy function..."):
+            directions_raw = get_route(o, d, mode=mode, api_key=api_key)
 
-    # Pass through your dummy preprocessor
-    origin_proc, destination_proc = process_inputs(origin, destination)
+        status = directions_raw.get("status", "UNKNOWN")
+        if status != "OK" or not directions_raw.get("routes"):
+            st.error(f"Directions provider returned status: {status}")
+            msg = directions_raw.get("error_message")
+            if msg:
+                st.caption(msg)
+        else:
+            coords, _ = decode_route_points(directions_raw)
+            st.session_state.coords = coords
+            st.session_state.route_data = directions_raw
+            st.session_state.route_meta = {"origin": o, "destination": d, "mode": mode}
 
-    with st.spinner("Fetching route via dummy function..."):
-        directions_raw = get_route(origin_proc, destination_proc, mode=mode, api_key=api_key)
+# --- ALWAYS render from session_state if we have a route ---
+if st.session_state.coords and st.session_state.route_data and st.session_state.route_meta:
+    coords = st.session_state.coords
+    meta = st.session_state.route_meta
+    directions = st.session_state.route_data
 
-    # Basic response checks
-    status = directions_raw.get("status", "UNKNOWN")
-    if status != "OK" or not directions_raw.get("routes"):
-        st.error(f"Directions provider returned status: {status}")
-        msg = directions_raw.get("error_message")
-        if msg:
-            st.caption(msg)
-        st.stop()
+    # Draw map
+    draw_map(coords, meta["origin"], meta["destination"])
 
-    # Decode + draw
-    coords, route = decode_route_points(directions_raw)
-    draw_map(coords, origin_proc, destination_proc)
-
-    # Details panel
+    # Details
+    route = directions["routes"][0]
     leg0 = route["legs"][0]
     total_distance = leg0["distance"]["text"]
     total_duration = leg0["duration"]["text"]
 
-    st.success(f"Route found: **{total_distance}**, about **{total_duration}** ({mode}).")
+    st.success(f"Route found: **{total_distance}**, about **{total_duration}** ({meta['mode']}).")
 
     with st.expander("Route details (first leg)"):
         st.write(f"**Start address:** {leg0.get('start_address','')}")
@@ -104,8 +117,8 @@ if go:
                 "html_instructions": step0.get("html_instructions", "")
             })
 
-        show_steps = st.checkbox("Show all step instructions (HTML from API)")
-        if show_steps:
-            for i, step in enumerate(leg0.get("steps", []), start=1):
-                st.markdown(f"**Step {i}:** {step.get('html_instructions','')}", unsafe_allow_html=True)
-                st.caption(f"{step['distance']['text']} • {step['duration']['text']}")
+    # Optional: clear button
+    if st.button("Clear route"):
+        st.session_state.coords = None
+        st.session_state.route_data = None
+        st.session_state.route_meta = None
