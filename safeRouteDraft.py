@@ -74,7 +74,7 @@ def reverse_geocode_best_effort(api_key: str, lat: float, lng: float) -> dict | 
         return data["results"][0]
     return None
 
-def neighboring_candidates(api_key: str, center_lat: float, center_lng: float,
+def neighboring_candidates(api_key: str, center_lat: float, center_lng: float, # NEED FALLBACK TO JUST CHOOSE THIS POINT TODO
                            radii_m: list[float] = [35.0, 80.0],
                            bearings_deg: int = 16,
                            want: int = 4) -> list[dict]:
@@ -153,46 +153,69 @@ def main():
     p.add_argument("--waypoint", action="append", default=[], help="Optional pre-set waypoint(s)")
     p.add_argument("--key", default=os.getenv("GOOGLE_MAPS_API_KEY"), help="Google API key")
     p.add_argument("--probe_m", type=float, default=25.0, help="Probe radius (meters) for neighbor search")
+    p.add_argument("max_iters", type=int, default=100, help="Maximum number of replanning iterations")
+    p.add_argument("max_dist", type=float, default=100.0, help="Maximum distance to walk between evaluations")
     args = p.parse_args()
 
     if not args.key:
         print("Provide API key via --key or GOOGLE_MAPS_API_KEY.", file=sys.stderr)
         sys.exit(1)
 
-    # 1) Initial walking route
+    # 1) Initialize walking route
+    current_iter = 0
+    current_pos = args.origin
     base_route = get_walking_route(args.key, args.origin, args.destination, args.waypoint)
+    current_route = base_route
     summarize_and_print(base_route, title="Base walking route")
 
-    # 2) First-block midpoint
-    lat, lng = first_block_midpoint(base_route)
-    print(f"\nFirst block midpoint: {lat:.6f}, {lng:.6f}")
+    # WHILE: current_waypoint/address != endpoint
+    while current_pos != args.destination or current_iter < args.max_iters:
+        # 2) Examine first step of first leg
+        leg0 = current_route["legs"][0]
+        step0 = leg0["steps"][0]
 
-    # 3) Neighboring intersections (up to 4)
-    neighbors = neighboring_candidates(args.key, lat, lng, radii_m=[35.0, 80.0], bearings_deg=16, want=4)
-    if not neighbors:
-        print("No neighboring intersections found. Try increasing --probe_m to 40–60.")
-        return
+        # IF: distance > MAX_DIST (defaults to 100m as typical city block)
+        if step0["distance"]["value"] > args.max_dist:
+            # 2.1) n-sect step and take the first point TODO though have midpointing rn
+            lat, lng = first_block_midpoint(current_route)
+            print(f"\nFirst block midpoint: {lat:.6f}, {lng:.6f}")
+        else:
+            # 2.2) set lat lng of our target
+            lat, lng = step0["start_location"]["lat"], step0["start_location"]["lng"] # check type TODO
 
-    print("\nCandidate neighboring intersections:")
-    for i, res in enumerate(neighbors, 1):
-        loc = res["geometry"]["location"]
-        print(f"{i}. {res.get('formatted_address','(no address)')} "
-              f"[{loc['lat']:.6f},{loc['lng']:.6f}]  ~{res.get('_distance_m', float('nan')):.0f} m")
+        # 3) Neighboring locations (up to 4)
+        neighbors = neighboring_candidates(args.key, lat, lng, radii_m=[35.0, 80.0], bearings_deg=16, want=4)
+        if not neighbors:
+            print("No neighboring intersections found. Try increasing --probe_m to 40–60.") # update this
+            return
 
-    # 4) Score & select one neighbor
-    selected = score_neighbors(neighbors)
-    if not selected:
-        print("Scoring returned no selection; skipping re-route.")
-        return
+        print("\nCandidate neighboring intersections:")
+        for i, res in enumerate(neighbors, 1):
+            loc = res["geometry"]["location"]
+            print(f"{i}. {res.get('formatted_address','(no address)')} "
+                f"[{loc['lat']:.6f},{loc['lng']:.6f}]  ~{res.get('_distance_m', float('nan')):.0f} m")
 
-    sel_loc = selected["geometry"]["location"]
-    sel_wp = f"{sel_loc['lat']:.6f},{sel_loc['lng']:.6f}"
-    print(f"\nSelected neighbor (via scoring): {selected.get('formatted_address','(no address)')}  -> {sel_wp}")
+        # 4) Score & select one candidate
+        selected = score_neighbors(neighbors)
+        if not selected:
+            print("Scoring returned no selection; skipping re-route.")
+            return
 
-    # 5) Re-call Directions with the selected neighbor as a new waypoint
-    new_waypoints = list(args.waypoint) + [sel_wp]
-    routed = get_walking_route(args.key, args.origin, args.destination, new_waypoints)
-    summarize_and_print(routed, title="Re-routed via selected intersection")
+        sel_loc = selected["geometry"]["location"]
+        sel_wp = f"{sel_loc['lat']:.6f},{sel_loc['lng']:.6f}"
+        print(f"\nSelected neighbor (via scoring): {selected.get('formatted_address','(no address)')}  -> {sel_wp}")
+
+        # IF: n_waypoints > (24 or 10 to spare money) fragment_calls() --> Store previous path. Update origin to new waypoint. TODO
+        if len(new_waypoints) > 24:
+            current_pos = list(args.waypoint)[-1]
+            # store old route first part
+            # update new waypoints
+
+        # 5) Re-call Directions with the selected neighbor as a new waypoint
+        new_waypoints = list(args.waypoint) + [sel_wp]
+        current_route = get_walking_route(args.key, current_pos, args.destination, new_waypoints)
+        summarize_and_print(current_route, title="Re-routed via selected intersection")
+        current_iter += 1
 
 if __name__ == "__main__":
     main()
