@@ -9,6 +9,8 @@ from dataclasses import dataclass
 
 from config import GOOGLE_MAPS_API_KEY
 
+from score import get_danger_score_from_loc
+
 DIRECTIONS_URL = "https://maps.googleapis.com/maps/api/directions/json"
 GEOCODE_URL    = "https://maps.googleapis.com/maps/api/geocode/json"
 
@@ -109,13 +111,16 @@ def resample_polyline(points: List[Tuple[float, float]], spacing_m: float) -> Li
 # -------------------------
 # Scoring
 # -------------------------
-def get_danger_score(location: Location) -> float:
+def get_danger_score_old(location: Location) -> float:
     """
     Placeholder scoring function. Returns a random score in [0, 1).
     In production, import from your 'score' module:
         from score import get_danger_score
     """
     return random.random()
+
+def get_danger_score(location: Location) -> float:
+    return get_danger_score_from_loc(location)
 
 # -------------------------
 # Google API helpers
