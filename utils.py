@@ -18,11 +18,7 @@ def _get_api_key_from_env_or_streamlit() -> Optional[str]:
 
 def get_route(origin: str, destination: str, mode: str = "driving", api_key: Optional[str] = None) -> Dict[str, Any]:
     """
-    DUMMY FUNCTION: Provide the route from Google Maps Directions API.
-    - Replace or modify this function as you like (e.g., call a different service,
-      add caching, enforce constraints, etc.).
-    - The app expects a raw Directions API-like response dict containing at least:
-      { 'status': 'OK', 'routes': [...] }
+    Generate safest route.
     """
     if api_key is None:
         # Fallback for running outside Streamlit; Streamlit passes the key explicitly

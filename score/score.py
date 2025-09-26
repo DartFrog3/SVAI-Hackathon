@@ -363,7 +363,7 @@ def get_danger_score(latitude: float, longitude: float, street_address: str,
     return final_state["danger_score"]
 
 def get_danger_score_from_loc(loc):
-    return get_danger_score(loc.lat, loc.long, "San Francisco, CA", radius_km=1.0, csv_path="crime.csv")
+    return get_danger_score(loc.lat, loc.lng, "San Francisco, CA", radius_km=1.0, csv_path="crime.csv")
 
 # # Test function
 # if __name__ == "__main__":
