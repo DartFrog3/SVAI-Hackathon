@@ -2,7 +2,7 @@
 from typing import Tuple, Dict, Any, Optional
 import os
 import requests
-from maps import StepProcessor
+from maps import StepProcessor, get_walking_route
 
 def process_inputs(origin: str, destination: str) -> Tuple[str, str]:
     """
@@ -23,4 +23,6 @@ def get_route(origin: str, destination: str, mode: str = "driving", api_key: Opt
     """
     step_processor = StepProcessor(os.getenv("GOOGLE_MAPS_API_KEY"), origin, destination)
     step_processor.reroute_until_safe()
-    return step_processor.get_ui_info()
+    route_info = step_processor.get_ui_info()
+
+    return get_walking_route(step_processor.key, route_info.origin, route_info.destination, route_info.waypoints)
