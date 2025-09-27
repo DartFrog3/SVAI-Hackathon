@@ -21,6 +21,6 @@ def get_route(origin: str, destination: str, mode: str = "driving", api_key: Opt
     """
     Generate safest route.
     """
-    StepProcessor(os.getenv("GOOGLE_MAPS_API_KEY"), origin, destination)
+    step_processor = StepProcessor(os.getenv("GOOGLE_MAPS_API_KEY"), origin, destination)
     step_processor.reroute_until_safe()
     return step_processor.get_ui_info()
