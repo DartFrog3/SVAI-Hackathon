@@ -385,10 +385,12 @@ class StepProcessor:
         If none found under the threshold, return the candidate with lowest score.
         Returns a waypoint string suitable for Directions API (address preferred).
         """
+        print("getting candidate waypoints...")
         cands = neighboring_candidates(self.key, location.lat, location.lng,
                                        radii_m=[self.probe_m, self.probe_m * 2.0],
                                        bearings_deg=16,
                                        want=6)
+        print(f"got {len(cands)}")
         if not cands:
             # As a fallback, try to reverse-geocode the location itself
             rg = reverse_geocode_best_effort(self.key, location.lat, location.lng)
